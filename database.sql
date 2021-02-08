@@ -1,0 +1,146 @@
+PRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE IF NOT EXISTS "AppUser" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "username" TEXT NOT NULL,
+  "password" TEXT NOT NULL,
+  "nama_sekolah" TEXT NOT NULL,
+  "alamat_sekolah" TEXT NOT NULL
+);
+INSERT INTO AppUser VALUES(1,'admin','admin','A','B');
+INSERT INTO AppUser VALUES(2,'admin','admin','admin','admin');
+CREATE TABLE IF NOT EXISTS "Guru" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "app_user" INTEGER NOT NULL REFERENCES "AppUser" ("id") ON DELETE CASCADE,
+  "nama" TEXT NOT NULL,
+  "nip" TEXT NOT NULL,
+  "sex" TEXT NOT NULL
+);
+INSERT INTO Guru VALUES(1,1,'batsyeba poyk, S.Th','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(2,1,'Sinyonaris Lonakoni, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(3,1,'Onita Jumiati Hauteas, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(4,1,'Welhelmus Willa, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(5,1,'Benediktus Tnesi, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(6,1,'Apriliani M. Tewan, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(7,1,'Vera R. Menno','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(8,1,'Mafrudo, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(9,1,'Fransiska G.N. Jebarus, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(10,1,'Regina Dusut, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(11,1,'Mariana Dimu, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(12,1,'Juliana Kota, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(13,1,'Erna Maria A. Bone, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(14,1,'Bulan Banaweng, S.Pd','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(15,1,'Johana J. Payk','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(16,1,'Selviana Lekbia','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(17,1,'Reefjhon M. Dida','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(18,1,'Erwina Agustina','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(19,1,'Antoheta M. Bisinglasi','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(20,1,'Febriani N. F. Maikameng','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(21,1,'Rosalina Isabela','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(22,1,'Merry A. Prasetya','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(23,1,'Ham Engel Dami','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(24,1,'Jacky Pong','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(25,1,'Sofia Mesakh','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(26,1,'Agustinus Epu','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(27,1,'Selviana Lekbia','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(28,1,'Frederika Tamar Karmaley','12019201909201920912','Laki');
+INSERT INTO Guru VALUES(29,1,'Samaria Sandi','12019201909201920912','Laki');
+CREATE TABLE IF NOT EXISTS "Kelas" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "app_user" INTEGER NOT NULL REFERENCES "AppUser" ("id") ON DELETE CASCADE,
+  "nama" TEXT NOT NULL
+);
+INSERT INTO Kelas VALUES(1,1,'VII A');
+INSERT INTO Kelas VALUES(2,1,'VII B');
+INSERT INTO Kelas VALUES(3,1,'VII C');
+INSERT INTO Kelas VALUES(4,1,'VII D');
+INSERT INTO Kelas VALUES(5,1,'VII E');
+INSERT INTO Kelas VALUES(6,1,'VII F');
+INSERT INTO Kelas VALUES(7,1,'VII G');
+INSERT INTO Kelas VALUES(8,1,'VII H');
+INSERT INTO Kelas VALUES(9,1,'VII I');
+INSERT INTO Kelas VALUES(10,1,'VII J');
+INSERT INTO Kelas VALUES(11,1,'VII  K');
+CREATE TABLE IF NOT EXISTS "MataPelajaran" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "app_user" INTEGER NOT NULL REFERENCES "AppUser" ("id") ON DELETE CASCADE,
+  "nama" TEXT NOT NULL,
+  "jpm" INTEGER NOT NULL
+);
+INSERT INTO MataPelajaran VALUES(1,1,'Agama',3);
+INSERT INTO MataPelajaran VALUES(2,1,'Bahasa Indonesia',3);
+INSERT INTO MataPelajaran VALUES(3,1,'PKN',3);
+INSERT INTO MataPelajaran VALUES(4,1,'Matematika',3);
+INSERT INTO MataPelajaran VALUES(5,1,'IPS',3);
+INSERT INTO MataPelajaran VALUES(6,1,'Bahasa Inggris',3);
+INSERT INTO MataPelajaran VALUES(7,1,'IPA',3);
+INSERT INTO MataPelajaran VALUES(8,1,'PJKR',3);
+INSERT INTO MataPelajaran VALUES(9,1,'Prakarya',3);
+INSERT INTO MataPelajaran VALUES(10,1,'Seni Budaya',3);
+INSERT INTO MataPelajaran VALUES(11,1,'BP/BK',3);
+CREATE TABLE IF NOT EXISTS "InputSch" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "app_user" INTEGER NOT NULL REFERENCES "AppUser" ("id") ON DELETE CASCADE,
+  "mata_pelajaran" INTEGER NOT NULL REFERENCES "MataPelajaran" ("id") ON DELETE CASCADE,
+  "guru" INTEGER NOT NULL REFERENCES "Guru" ("id") ON DELETE CASCADE,
+  "jam" INTEGER NOT NULL
+);
+INSERT INTO InputSch VALUES(1,1,1,1,3);
+INSERT INTO InputSch VALUES(2,1,1,2,3);
+INSERT INTO InputSch VALUES(3,1,1,3,3);
+INSERT INTO InputSch VALUES(4,1,2,4,6);
+INSERT INTO InputSch VALUES(5,1,2,5,6);
+INSERT INTO InputSch VALUES(6,1,2,6,6);
+INSERT INTO InputSch VALUES(7,1,2,7,6);
+INSERT INTO InputSch VALUES(8,1,4,8,5);
+INSERT INTO InputSch VALUES(9,1,4,9,5);
+INSERT INTO InputSch VALUES(10,1,4,10,5);
+INSERT INTO InputSch VALUES(11,1,3,11,3);
+INSERT INTO InputSch VALUES(12,1,3,4,3);
+INSERT INTO InputSch VALUES(13,1,3,12,3);
+INSERT INTO InputSch VALUES(14,1,5,13,4);
+INSERT INTO InputSch VALUES(15,1,5,14,4);
+INSERT INTO InputSch VALUES(16,1,5,15,4);
+INSERT INTO InputSch VALUES(17,1,5,16,4);
+INSERT INTO InputSch VALUES(18,1,6,17,4);
+INSERT INTO InputSch VALUES(19,1,6,18,4);
+INSERT INTO InputSch VALUES(20,1,6,19,4);
+INSERT INTO InputSch VALUES(21,1,7,20,5);
+INSERT INTO InputSch VALUES(22,1,7,21,5);
+INSERT INTO InputSch VALUES(23,1,7,22,5);
+INSERT INTO InputSch VALUES(24,1,8,23,3);
+INSERT INTO InputSch VALUES(25,1,8,24,3);
+INSERT INTO InputSch VALUES(26,1,9,15,2);
+INSERT INTO InputSch VALUES(27,1,9,25,2);
+INSERT INTO InputSch VALUES(28,1,9,1,2);
+INSERT INTO InputSch VALUES(29,1,10,16,3);
+INSERT INTO InputSch VALUES(30,1,10,28,3);
+INSERT INTO InputSch VALUES(31,1,11,29,2);
+CREATE TABLE IF NOT EXISTS "SchedulerTask" (
+  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "app_user" INTEGER NOT NULL REFERENCES "AppUser" ("id") ON DELETE CASCADE,
+  "status" TEXT NOT NULL,
+  "created_at" DATETIME,
+  "started_at" DATETIME,
+  "end_at" DATETIME,
+  "args" JSON NOT NULL,
+  "result" JSON NOT NULL
+);
+INSERT INTO SchedulerTask VALUES(1,1,'ready',NULL,'2021-01-30 14:24:40.480032',NULL,'{"message":"hi"}','{}');
+INSERT INTO SchedulerTask VALUES(2,1,'ready',NULL,'2021-01-30 14:32:24.217725',NULL,'{"message":"hi"}','{}');
+INSERT INTO SchedulerTask VALUES(3,1,'ready',NULL,'2021-02-01 10:27:54.263170',NULL,'{"c1":1.5,"c2":2,"n_hourse":40,"n_particles":5,"threshold":20,"w":0.65}','{}');
+DELETE FROM sqlite_sequence;
+INSERT INTO sqlite_sequence VALUES('AppUser',2);
+INSERT INTO sqlite_sequence VALUES('SchedulerTask',3);
+INSERT INTO sqlite_sequence VALUES('Guru',29);
+INSERT INTO sqlite_sequence VALUES('MataPelajaran',11);
+INSERT INTO sqlite_sequence VALUES('InputSch',31);
+INSERT INTO sqlite_sequence VALUES('Kelas',11);
+CREATE INDEX "idx_guru__app_user" ON "Guru" ("app_user");
+CREATE INDEX "idx_kelas__app_user" ON "Kelas" ("app_user");
+CREATE INDEX "idx_matapelajaran__app_user" ON "MataPelajaran" ("app_user");
+CREATE INDEX "idx_inputsch__app_user" ON "InputSch" ("app_user");
+CREATE INDEX "idx_inputsch__guru" ON "InputSch" ("guru");
+CREATE INDEX "idx_inputsch__mata_pelajaran" ON "InputSch" ("mata_pelajaran");
+CREATE INDEX "idx_schedulertask__app_user" ON "SchedulerTask" ("app_user");
+COMMIT;
