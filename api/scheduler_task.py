@@ -1,5 +1,5 @@
 from webapp.api.bp import api
-from webapp.db import SchedulerTask, AppUser, Kelas, InputSch, db
+from webapp.db import SchedulerTask, AppUser, Kelas, InputSch, db, MataPelajaran
 from flask import Blueprint, request, jsonify, g
 from pony.orm import (db_session, commit, select)
 
@@ -9,8 +9,12 @@ def create_task():
     id_app_user = int(request.args['id_app_user'])
     app_user = AppUser[id_app_user]
     payload = request.json
+
     kelas = select(k for k in Kelas if k.app_user == app_user)
     kelas = [ k.to_dict() for k in kelas ]
+
+    mps = select(mp for mp in MataPelajaran if mp.app_user == app_user)
+    mps = [ mp.to_dict() for mp in mps ]
 
     mp_guru = db.select(f"""
             isch.id as id,
@@ -35,6 +39,7 @@ def create_task():
 
     payload['kelas'] = kelas
     payload['mp_guru'] = mp_guru
+    payload['mps'] = mps
     st = SchedulerTask(
         app_user=app_user,
         args=payload,
@@ -42,7 +47,7 @@ def create_task():
     )
     commit()
 
-    return jsonify({ 'message': 'OK' })
+    return jsonify(payload)
 
 @api.route('scheduler_task', methods=['GET'])
 @db_session

@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import numpy.ma as ma
+import time
 
 KELAS = [{"id":1,"nama":"VIIA"},{"id":2,"nama":"VIIB"},{"id":3,"nama":"VIIC"},{"id":4,"nama":"VIID"},{"id":5,"nama":"VIIE"},{"id":6,"nama":"VIIF"},{"id":7,"nama":"VIIG"},{"id":8,"nama":"VIIH"},{"id":9,"nama":"VIII"},{"id":10,"nama":"VIIJ"},{"id":11,"nama":"VIIK"}]
 N_KELAS = len(KELAS)
@@ -12,6 +13,8 @@ def pso(args):
     global BOBOT_HARI
     KELAS = args['kelas']
     MP_GURU = args['mp_guru']
+    MP = args['mps']
+    MP_MAP = { m['id']: m for m in MP }
     N_KELAS = len(KELAS)
     N_HOURS = 40
     N_PARTICLES = args['n_particles']
@@ -85,35 +88,81 @@ def pso(args):
             )
             id_mp_guru = set(mp_guru["id"] for mp_guru in sample_mp_guru)
             redundant = len( id_mp_guru.intersection(self.exists) ) > 0
-            while sample_total_hours != max_bobot or redundant:
+            mp_hours_violated = True
+            niter = 0
+            while sample_total_hours != max_bobot or redundant or mp_hours_violated:
                 sample_mp_guru = random.sample(MP_GURU, 2 if nmp % 2 == 0 else 3)
                 id_mp_guru = set(mp_guru["id"] for mp_guru in sample_mp_guru)
                 redundant = len( id_mp_guru.intersection(self.exists) ) > 0
                 sample_total_hours = sum(mp["jam"] for mp in sample_mp_guru)
+
+                mp_hours_violated = False
+                for r in sample_mp_guru:
+                    temp1 = r['jam'] + self.mp_max_target[r['mp_id']]
+                    if temp1 > MP_MAP[r['mp_id']]['jpm']:
+                        mp_hours_violated = True
+                        break
                 nmp += 1
+                niter += 1
+                if niter > 1000:
+                    raise Exception()
+                # print(MP_MAP[r['mp_id']])
+                # print(f"{sample_mp_guru}")
+                # print(self.mp_max_target)
+                # input()
             for r in sample_mp_guru:
                 self.exists.add(r["id"])
             # print(f"day={day}")
             # print(f"target={max_bobot}")
             # print(sample_mp_guru)
             # input()
+            # print(sample_mp_guru)
+            # print(self.mp_max_target)
+            # time.sleep(5)
             result = []
+            # print(self.mp_max_target)
             for sm in sample_mp_guru:
+                self.mp_max_target[sm["mp_id"]] += sm["jam"]
                 for i in range(sm["jam"]):
                     result.append(sm["id"])
             return result
 
-        def generate(self):
+        def _gen(self):
+            self.mp_max_target = {}
+            for m in MP:
+                self.mp_max_target[m['id']] = 0
+            # print('generating solution')
             result = []
             for day in range(6):
                 day_solution = self._generate_for_day(day)
-                # print(f"hari-{day}")
-                print_schedule(day_solution)
+                print(f"hari-{day}")
+                # print(self.mp_max_target)
+                # print_schedule(day_solution)
                 # print()
                 # print(f"day-{day}")
                 # print(sum(ds["bobot"] for ds in day_solution))
                 # print(self.exists)
                 result.extend(day_solution)
+            # mps = [ find_mp_by_mp_id(mp) for mp in result ]
+            # mps = np.array(mps)
+            # print(np.unique(mps, return_counts=True))
+            # print(self.mp_max_target)
+            # print(MP_MAP)
+            # print(mps)
+            # raise Exception()
+            return result
+
+        def generate(self):
+            failed = True
+            result = None
+            while failed:
+                try:
+                    result = self._gen()
+                    failed = False
+                except Exception:
+                    print('repeat generation')
+                    print(self.mp_max_target)
+                    continue
             return result
 
     def print_schedule(schedule):
@@ -132,7 +181,9 @@ def pso(args):
                 kelas_jadwal_generator = KelasSolutionGenerator();
                 kelas_result = kelas_jadwal_generator.generate()
                 particle.append(kelas_result)
+                print(f"solution generated for kelas: {kelas}")
             particles.append(particle)
+        # print('here')
         return np.array(particles)
             # print_schedule(kelas_result)
             # print(kelas_result)
@@ -140,6 +191,10 @@ def pso(args):
     def find_guru_by_mp_id(mp_id):
         guru, *_ = [ mp["guru_id"] for mp in MP_GURU if mp["id"] == mp_id ]
         return guru
+
+    def find_mp_by_mp_id(mp_id):
+        mp, *_ = [ mp["mp_id"] for mp in MP_GURU if mp["id"] == mp_id ]
+        return mp
 
     def find_guru(mp_id):
         guru = next(mp for mp in MP_GURU if mp["id"] == mp_id)
@@ -182,6 +237,17 @@ def pso(args):
         # return guru
         return np.array(violations)
 
+    def _transform_to_mp(particles):
+        N_KELAS = len(KELAS)
+        mp = []
+        for i in range(N_PARTICLES):
+            particle = []
+            for j in range(N_KELAS):
+                kelas = [ find_mp_by_mp_id(x) for x in particles[i, j] ]
+                particle.append(kelas)
+            mp.append(particle)
+        return np.array(mp)
+
     def calc_vio_fit(particles):
         guru_jadwal = _transform_to_guru(particles)
         violations = calculate_violations(particles)
@@ -195,9 +261,9 @@ def pso(args):
     while True:
     #     # print(particles)
         violations, fitness = calc_vio_fit(particles)
-        # print(violations)
-        # print(fitness)
-        # break
+        print(violations)
+        print(fitness)
+        break
         min_fit = min(fitness)
         min_i = next(i for i, j in enumerate(fitness) if j == min_fit)
         particle = particles[min_i]
@@ -279,3 +345,359 @@ def pso(args):
         result.append(subres)
 
     return result
+
+if __name__ == '__main__':
+    args = {
+      "c1": 1.5, 
+      "c2": 2, 
+      "kelas": [
+        {
+          "app_user": 1, 
+          "id": 1, 
+          "nama": "VII A"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 2, 
+          "nama": "VII B"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 3, 
+          "nama": "VII C"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 4, 
+          "nama": "VII D"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 5, 
+          "nama": "VII E"
+        }
+      ], 
+      "mp_guru": [
+        {
+          "guru_id": 1, 
+          "guru_nama": "batsyeba poyk, S.Th", 
+          "id": 1, 
+          "jam": 3, 
+          "mp_id": 1, 
+          "mp_nama": "Agama"
+        }, 
+        {
+          "guru_id": 2, 
+          "guru_nama": "Sinyonaris Lonakoni, S.Pd", 
+          "id": 2, 
+          "jam": 3, 
+          "mp_id": 1, 
+          "mp_nama": "Agama"
+        }, 
+        {
+          "guru_id": 3, 
+          "guru_nama": "Onita Jumiati Hauteas, S.Pd", 
+          "id": 3, 
+          "jam": 3, 
+          "mp_id": 1, 
+          "mp_nama": "Agama"
+        }, 
+        {
+          "guru_id": 4, 
+          "guru_nama": "Welhelmus Willa, S.Pd", 
+          "id": 4, 
+          "jam": 6, 
+          "mp_id": 2, 
+          "mp_nama": "Bahasa Indonesia"
+        }, 
+        {
+          "guru_id": 5, 
+          "guru_nama": "Benediktus Tnesi, S.Pd", 
+          "id": 5, 
+          "jam": 6, 
+          "mp_id": 2, 
+          "mp_nama": "Bahasa Indonesia"
+        }, 
+        {
+          "guru_id": 6, 
+          "guru_nama": "Apriliani M. Tewan, S.Pd", 
+          "id": 6, 
+          "jam": 6, 
+          "mp_id": 2, 
+          "mp_nama": "Bahasa Indonesia"
+        }, 
+        {
+          "guru_id": 7, 
+          "guru_nama": "Vera R. Menno", 
+          "id": 7, 
+          "jam": 6, 
+          "mp_id": 2, 
+          "mp_nama": "Bahasa Indonesia"
+        }, 
+        {
+          "guru_id": 8, 
+          "guru_nama": "Mafrudo, S.Pd", 
+          "id": 8, 
+          "jam": 5, 
+          "mp_id": 4, 
+          "mp_nama": "Matematika"
+        }, 
+        {
+          "guru_id": 9, 
+          "guru_nama": "Fransiska G.N. Jebarus, S.Pd", 
+          "id": 9, 
+          "jam": 5, 
+          "mp_id": 4, 
+          "mp_nama": "Matematika"
+        }, 
+        {
+          "guru_id": 10, 
+          "guru_nama": "Regina Dusut, S.Pd", 
+          "id": 10, 
+          "jam": 5, 
+          "mp_id": 4, 
+          "mp_nama": "Matematika"
+        }, 
+        {
+          "guru_id": 11, 
+          "guru_nama": "Mariana Dimu, S.Pd", 
+          "id": 11, 
+          "jam": 3, 
+          "mp_id": 3, 
+          "mp_nama": "PKN"
+        }, 
+        {
+          "guru_id": 4, 
+          "guru_nama": "Welhelmus Willa, S.Pd", 
+          "id": 12, 
+          "jam": 3, 
+          "mp_id": 3, 
+          "mp_nama": "PKN"
+        }, 
+        {
+          "guru_id": 12, 
+          "guru_nama": "Juliana Kota, S.Pd", 
+          "id": 13, 
+          "jam": 3, 
+          "mp_id": 3, 
+          "mp_nama": "PKN"
+        }, 
+        {
+          "guru_id": 13, 
+          "guru_nama": "Erna Maria A. Bone, S.Pd", 
+          "id": 14, 
+          "jam": 4, 
+          "mp_id": 5, 
+          "mp_nama": "IPS"
+        }, 
+        {
+          "guru_id": 14, 
+          "guru_nama": "Bulan Banaweng, S.Pd", 
+          "id": 15, 
+          "jam": 4, 
+          "mp_id": 5, 
+          "mp_nama": "IPS"
+        }, 
+        {
+          "guru_id": 15, 
+          "guru_nama": "Johana J. Payk", 
+          "id": 16, 
+          "jam": 4, 
+          "mp_id": 5, 
+          "mp_nama": "IPS"
+        }, 
+        {
+          "guru_id": 16, 
+          "guru_nama": "Selviana Lekbia", 
+          "id": 17, 
+          "jam": 4, 
+          "mp_id": 5, 
+          "mp_nama": "IPS"
+        }, 
+        {
+          "guru_id": 17, 
+          "guru_nama": "Reefjhon M. Dida", 
+          "id": 18, 
+          "jam": 4, 
+          "mp_id": 6, 
+          "mp_nama": "Bahasa Inggris"
+        }, 
+        {
+          "guru_id": 18, 
+          "guru_nama": "Erwina Agustina", 
+          "id": 19, 
+          "jam": 4, 
+          "mp_id": 6, 
+          "mp_nama": "Bahasa Inggris"
+        }, 
+        {
+          "guru_id": 19, 
+          "guru_nama": "Antoheta M. Bisinglasi", 
+          "id": 20, 
+          "jam": 4, 
+          "mp_id": 6, 
+          "mp_nama": "Bahasa Inggris"
+        }, 
+        {
+          "guru_id": 20, 
+          "guru_nama": "Febriani N. F. Maikameng", 
+          "id": 21, 
+          "jam": 5, 
+          "mp_id": 7, 
+          "mp_nama": "IPA"
+        }, 
+        {
+          "guru_id": 21, 
+          "guru_nama": "Rosalina Isabela", 
+          "id": 22, 
+          "jam": 5, 
+          "mp_id": 7, 
+          "mp_nama": "IPA"
+        }, 
+        {
+          "guru_id": 22, 
+          "guru_nama": "Merry A. Prasetya", 
+          "id": 23, 
+          "jam": 5, 
+          "mp_id": 7, 
+          "mp_nama": "IPA"
+        }, 
+        {
+          "guru_id": 23, 
+          "guru_nama": "Ham Engel Dami", 
+          "id": 24, 
+          "jam": 3, 
+          "mp_id": 8, 
+          "mp_nama": "PJKR"
+        }, 
+        {
+          "guru_id": 24, 
+          "guru_nama": "Jacky Pong", 
+          "id": 25, 
+          "jam": 3, 
+          "mp_id": 8, 
+          "mp_nama": "PJKR"
+        }, 
+        {
+          "guru_id": 15, 
+          "guru_nama": "Johana J. Payk", 
+          "id": 26, 
+          "jam": 2, 
+          "mp_id": 9, 
+          "mp_nama": "Prakarya"
+        }, 
+        {
+          "guru_id": 25, 
+          "guru_nama": "Sofia Mesakh", 
+          "id": 27, 
+          "jam": 2, 
+          "mp_id": 9, 
+          "mp_nama": "Prakarya"
+        }, 
+        {
+          "guru_id": 1, 
+          "guru_nama": "batsyeba poyk, S.Th", 
+          "id": 28, 
+          "jam": 2, 
+          "mp_id": 9, 
+          "mp_nama": "Prakarya"
+        }, 
+        {
+          "guru_id": 16, 
+          "guru_nama": "Selviana Lekbia", 
+          "id": 29, 
+          "jam": 3, 
+          "mp_id": 10, 
+          "mp_nama": "Seni Budaya"
+        }, 
+        {
+          "guru_id": 28, 
+          "guru_nama": "Frederika Tamar Karmaley", 
+          "id": 30, 
+          "jam": 3, 
+          "mp_id": 10, 
+          "mp_nama": "Seni Budaya"
+        }, 
+        {
+          "guru_id": 29, 
+          "guru_nama": "Samaria Sandi", 
+          "id": 31, 
+          "jam": 2, 
+          "mp_id": 11, 
+          "mp_nama": "BP/BK"
+        }
+      ], 
+      "mps": [
+        {
+          "app_user": 1, 
+          "id": 1, 
+          "jpm": 3, 
+          "nama": "Agama"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 2, 
+          "jpm": 6, 
+          "nama": "Bahasa Indonesia"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 3, 
+          "jpm": 3, 
+          "nama": "PKN"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 4, 
+          "jpm": 5, 
+          "nama": "Matematika"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 5, 
+          "jpm": 4, 
+          "nama": "IPS"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 6, 
+          "jpm": 4, 
+          "nama": "Bahasa Inggris"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 7, 
+          "jpm": 5, 
+          "nama": "IPA"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 8, 
+          "jpm": 3, 
+          "nama": "PJKR"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 9, 
+          "jpm": 2, 
+          "nama": "Prakarya"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 10, 
+          "jpm": 3, 
+          "nama": "Seni Budaya"
+        }, 
+        {
+          "app_user": 1, 
+          "id": 11, 
+          "jpm": 2, 
+          "nama": "BP/BK"
+        }
+      ], 
+      "n_hourse": 40, 
+      "n_particles": 5, 
+      "threshold": 20, 
+      "w": 0.65
+    }
+    pso(args)
