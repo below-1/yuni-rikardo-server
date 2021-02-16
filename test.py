@@ -194,27 +194,40 @@ def spread_solutions(data):
     }
 
 def calc_violations(xs):
-    n, _ = xs.shape
     violations = 0
-    pos = set()
-    for a, b in combinations(range(n), 2):
-        xa = xs.loc[a]
-        xb = xs.loc[b]
-        if xa.hari != xb.hari:
-            continue
-        if xa.guru != xb.guru:
-            continue
-        if xa.t0 <= xb.t1 and xa.t0 >= xb.t0:
-            violations += 1
-            pos.add(a)
-            pos.add(b)
-            continue
-        if xb.t0 <= xa.t1 and xb.t0 >= xa.t0:
-            violations += 1
-            pos.add(a)
-            pos.add(b)
-            continue
-    return violations, list(pos)
+    all_dups = []
+    for _, group in xs.groupby(['hari', 't0', 't1']):
+        dups = group.duplicated('guru')
+        dups_ind = dups[dups == True].index
+        all_dups.extend(dups_ind.to_list())
+        violations += len(dups_ind)
+    return violations, all_dups
+
+# def calc_violations(xs):
+#     n, _ = xs.shape
+#     violations = 0
+#     pos = set()
+#     for a, b in combinations(range(n), 2):
+#         xa = xs.loc[a]
+#         xb = xs.loc[b]
+#         if xa.hari != xb.hari:
+#             continue
+#         if xa.guru != xb.guru:
+#             continue
+#         if xa.t0 <= xb.t1 and xa.t0 >= xb.t0:
+#             violations += 1
+#             pos.add(a)
+#             pos.add(b)
+#             continue
+#         if xb.t0 <= xa.t1 and xb.t0 >= xa.t0:
+#             violations += 1
+#             pos.add(a)
+#             pos.add(b)
+#             continue
+#     return violations, list(pos)
+
+def find_ind_pools(xs, jam):
+    ind_pools = xs[xs['jam'] == jam].index.to_list()
 
 def swap_time(xs, a, b):
     _hari = xs.loc[a].hari
@@ -232,23 +245,33 @@ def choose_same_jam(xs, a):
     return xs.index[xs['jam'] == jam]
 
 def main(xs):
-    violations = 1
+    violations, vio_index = calc_violations(xs)
     # return xs
+    indices = xs.index.to_list()
+    niter = 0
     while violations != 0:
-        violations, vio_pos = calc_violations(xs)
-        if violations == 0:
+        niter += 1
+        new_vio, vio_index = calc_violations(xs)
+        if new_vio == 0:
             break
-        a = random.choice(vio_pos)
-        ind_pools = xs.index.difference([a])
-        b = random.choice(choose_same_jam(xs, a).to_list())
-        # b = random.choice(ind_pools.to_list())
+        a = random.choice(vio_index)
+        tgt_jam = xs.loc[a].jam
+        ind_pools = xs[xs['jam'] == tgt_jam].index.difference([a]).to_list()
+        b = random.choice(ind_pools)
 
         swap_time(xs, a, b)
-        new_vio, _ = calc_violations(xs)
+        if niter > 1000:
+            print(f"a={a}, b={b}")
+            print(vio_index)
+            input()
         if new_vio > violations:
             swap_time(xs, b, a)
+        else:
+            violations = new_vio
+        if violations == 0:
+            break
 
-        print(f"violations = {violations}")
+        print(f"new_vio = {new_vio}")
     return xs
 
 if __name__ == '__main__':
