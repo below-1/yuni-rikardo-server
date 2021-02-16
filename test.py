@@ -3,10 +3,13 @@ import numpy as np
 import numpy.ma as ma
 import time
 import json
+import pandas as pd
+from itertools import combinations
 
 from collections import namedtuple
 
 PoolItem = namedtuple('PoolItem', ['mp_id', 'jam', 'mpg', 'id'])
+SlotItem = namedtuple('SlotItem', ["item", "h", "t0", "t1"])
 
 def _split_mpgs (mp_guru_list):
     tmp_mp_guru = []
@@ -127,11 +130,21 @@ class KelasSolutionGenerator:
                         break
                 if total_mp_hours_violated:
                     continue
+                curr_t = 0
                 for item in day_result:
                     current_mp_hours[item.mp_id] += item.jam
                     if current_mp_hours[item.mp_id] == mp_hours[item.mp_id]:
                         pools = [ it for it in pools if item.mp_id != it.mp_id ]
-                result.append(day_result)
+                    t0 = curr_t
+                    t1 = t0 + item.mpg['jam'] - 1
+                    curr_t = t1 + 1
+                    slot_item = SlotItem(
+                        item=item, 
+                        h=day, 
+                        t0=t0, 
+                        t1=t1
+                    )
+                    result.append(slot_item)
                 break
         return result
 
@@ -171,11 +184,88 @@ def spread_solutions(data):
         "guru": np.array(guru_array)
     }
 
+def calc_violations(xs):
+    n, _ = xs.shape
+    violations = 0
+    pos = set()
+    for a, b in combinations(range(n), 2):
+        xa = xs.loc[a]
+        xb = xs.loc[b]
+        if xa.hari != xb.hari:
+            continue
+        if xa.guru != xb.guru:
+            continue
+        if xa.t0 <= xb.t1 and xa.t0 >= xb.t0:
+            violations += 1
+            pos.add(a)
+            pos.add(b)
+            continue
+        if xb.t0 <= xa.t1 and xb.t0 >= xa.t0:
+            violations += 1
+            pos.add(a)
+            pos.add(b)
+            continue
+    return violations, list(pos)
+
+def swap_time(xs, a, b):
+    _hari = xs.loc[a].hari
+    _t0 = xs.loc[a].t0
+    _t1 = xs.loc[a].t1
+    xs.loc[a].hari = xs.loc[b].hari
+    xs.loc[a].t0 = xs.loc[b].t0
+    xs.loc[a].t1 = xs.loc[b].t1
+    xs.loc[b].hari = _hari
+    xs.loc[b].t0 = _t0
+    xs.loc[b].t1 = _t1
+
+def choose_same_jam(xs, a):
+    jam = xs.loc[a].jam
+    return xs.index[xs['jam'] == jam]
+
+def main(init_sols):
+    xs = []
+    for i, k in enumerate(init_sols):
+        for slot in k:
+            xs.append([
+                slot.item.id, 
+                slot.item.mpg['guru_id'], 
+                slot.item.mpg['mp_id'], 
+                slot.h,
+                slot.t0, 
+                slot.t1,
+                slot.t1 - slot.t0 + 1
+            ])
+    # xs = np.array(xs)
+    xs = pd.DataFrame(xs, columns=["id", "guru", "mp", "hari", "t0", "t1", 'jam'])
+    violations = 1
+    # return xs
+    while violations != 0:
+        violations, vio_pos = calc_violations(xs)
+        if violations == 0:
+            break
+        a = random.choice(vio_pos)
+        ind_pools = xs.index.difference([a])
+        b = random.choice(choose_same_jam(xs, a).to_list())
+        # b = random.choice(ind_pools.to_list())
+
+        swap_time(xs, a, b)
+        new_vio, _ = calc_violations(xs)
+        if new_vio > violations:
+            swap_time(xs, b, a)
+
+        print(f"violations = {violations}")
+    return xs
+
 if __name__ == '__main__':
     with open('webapp/data_test.json') as f:
         data = json.loads(f.read())
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     init_sols = generate_initial_solution(data)
+    result = main(init_sols)
+    # for g in gurus:
+    #     g_slots = xs[xs[:, 2] == g]
+    #     g_slots[g_slots[:, 4]]
+    #     print(g_slots)
     # spreaded = spread_solutions(init_sols)
     # print(spreaded)
 
