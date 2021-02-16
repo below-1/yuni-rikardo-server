@@ -163,8 +163,17 @@ def generate_initial_solution(data):
     for kelas in data['kelas_list']:
         generator = KelasSolutionGenerator(**data)
         kelas_result = generator.generate()
-        result.append(kelas_result)
-    return result
+        for slot in kelas_result:
+            result.append([
+                kelas['id'], 
+                slot.item.mpg['guru_id'], 
+                slot.item.mpg['mp_id'], 
+                slot.h,
+                slot.t0, 
+                slot.t1,
+                slot.t1 - slot.t0 + 1
+            ])
+    return pd.DataFrame(result, columns=["kelas", "guru", "mp", "hari", "t0", "t1", 'jam'])
 
 def spread_solutions(data):
     mpg_array = []
@@ -211,32 +220,18 @@ def swap_time(xs, a, b):
     _hari = xs.loc[a].hari
     _t0 = xs.loc[a].t0
     _t1 = xs.loc[a].t1
-    xs.loc[a].hari = xs.loc[b].hari
-    xs.loc[a].t0 = xs.loc[b].t0
-    xs.loc[a].t1 = xs.loc[b].t1
-    xs.loc[b].hari = _hari
-    xs.loc[b].t0 = _t0
-    xs.loc[b].t1 = _t1
+    xs.loc[a, 'hari'] = xs.loc[b].hari
+    xs.loc[a, 't0'] = xs.loc[b].t0
+    xs.loc[a, 't1'] = xs.loc[b].t1
+    xs.loc[b, 'hari'] = _hari
+    xs.loc[b, 't0'] = _t0
+    xs.loc[b, 't1'] = _t1
 
 def choose_same_jam(xs, a):
     jam = xs.loc[a].jam
     return xs.index[xs['jam'] == jam]
 
-def main(init_sols):
-    xs = []
-    for i, k in enumerate(init_sols):
-        for slot in k:
-            xs.append([
-                slot.item.id, 
-                slot.item.mpg['guru_id'], 
-                slot.item.mpg['mp_id'], 
-                slot.h,
-                slot.t0, 
-                slot.t1,
-                slot.t1 - slot.t0 + 1
-            ])
-    # xs = np.array(xs)
-    xs = pd.DataFrame(xs, columns=["id", "guru", "mp", "hari", "t0", "t1", 'jam'])
+def main(xs):
     violations = 1
     # return xs
     while violations != 0:
@@ -260,8 +255,8 @@ if __name__ == '__main__':
     with open('webapp/data_test.json') as f:
         data = json.loads(f.read())
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
-    init_sols = generate_initial_solution(data)
-    result = main(init_sols)
+    xs = generate_initial_solution(data)
+    result = main(xs)
     # for g in gurus:
     #     g_slots = xs[xs[:, 2] == g]
     #     g_slots[g_slots[:, 4]]
