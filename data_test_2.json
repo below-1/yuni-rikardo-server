@@ -1,7 +1,34 @@
 {
+  "bobot_hari": [
+    [
+      {
+        "hari": 0, 
+        "max": 7
+      }, 
+      {
+        "hari": 1, 
+        "max": 8
+      }, 
+      {
+        "hari": 2, 
+        "max": 8
+      }, 
+      {
+        "hari": 3, 
+        "max": 7
+      }, 
+      {
+        "hari": 4, 
+        "max": 5
+      }, 
+      {
+        "hari": 5, 
+        "max": 5
+      }
+    ]
+  ], 
   "c1": 1.5, 
   "c2": 2, 
-  "bobot_hari": [ { "hari": 0, "max": 7 }, { "hari": 1, "max": 8 }, { "hari": 2, "max": 8 }, { "hari": 3, "max": 7 }, { "hari": 4, "max": 5 }, { "hari": 5, "max": 5 }],
   "kelas_list": [
     {
       "app_user": 1, 
@@ -27,36 +54,36 @@
       "app_user": 1, 
       "id": 5, 
       "nama": "VII E"
-    },
+    }, 
     {
       "app_user": 1, 
-      "id": 6, 
-      "nama": "VII F"
-    },
+      "id": 12, 
+      "nama": "F"
+    }, 
     {
       "app_user": 1, 
-      "id": 7, 
-      "nama": "VII G"
-    },
+      "id": 13, 
+      "nama": "G"
+    }, 
     {
       "app_user": 1, 
-      "id": 8, 
-      "nama": "VII H"
-    },
+      "id": 14, 
+      "nama": "H"
+    }, 
     {
       "app_user": 1, 
-      "id": 9, 
-      "nama": "VII I"
-    },
+      "id": 15, 
+      "nama": "I"
+    }, 
     {
       "app_user": 1, 
-      "id": 10, 
-      "nama": "VII J"
-    },
+      "id": 16, 
+      "nama": "J"
+    }, 
     {
       "app_user": 1, 
-      "id": 11, 
-      "nama": "VII K"
+      "id": 17, 
+      "nama": "K"
     }
   ], 
   "mp_guru_list": [
@@ -376,7 +403,7 @@
       "jpm": 2, 
       "nama": "BP/BK"
     }
-  ],
+  ], 
   "n_hourse": 40, 
   "n_particles": 5, 
   "threshold": 20, 

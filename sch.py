@@ -85,8 +85,6 @@ class KelasSolutionGenerator:
         return result
 
     def _gen(self):
-        # if self.mark == 2:
-        # print(f"size of mp_guru_list: {len(self.mp_guru_list)}")
         pools = self._gen_mp_guru_pools()
         mp_hours = {}
         current_mp_hours = {}
@@ -203,29 +201,6 @@ def calc_violations(xs):
         violations += len(dups_ind)
     return violations, all_dups
 
-# def calc_violations(xs):
-#     n, _ = xs.shape
-#     violations = 0
-#     pos = set()
-#     for a, b in combinations(range(n), 2):
-#         xa = xs.loc[a]
-#         xb = xs.loc[b]
-#         if xa.hari != xb.hari:
-#             continue
-#         if xa.guru != xb.guru:
-#             continue
-#         if xa.t0 <= xb.t1 and xa.t0 >= xb.t0:
-#             violations += 1
-#             pos.add(a)
-#             pos.add(b)
-#             continue
-#         if xb.t0 <= xa.t1 and xb.t0 >= xa.t0:
-#             violations += 1
-#             pos.add(a)
-#             pos.add(b)
-#             continue
-#     return violations, list(pos)
-
 def find_ind_pools(xs, jam):
     ind_pools = xs[xs['jam'] == jam].index.to_list()
 
@@ -240,11 +215,29 @@ def swap_time(xs, a, b):
     xs.loc[b, 't0'] = _t0
     xs.loc[b, 't1'] = _t1
 
+def swap_kelas(xs, a, b):
+    _kelas = xs.loc[a].kelas
+    xs.loc[a, 'kelas'] = xs.loc[b].kelas
+    xs.loc[b, 'kelas'] = _kelas
+
 def choose_same_jam(xs, a):
     jam = xs.loc[a].jam
     return xs.index[xs['jam'] == jam]
 
-def main(xs):
+def mutate(xs, a):
+    tgt_kelas = xs.loc[a].kelas
+    tgt_jam = xs.loc[a].jam
+    tgt_mp = xs.loc[a].mp
+    selectors = (xs['kelas'] == tgt_kelas) & (xs['jam'] == tgt_jam)
+    ind_pools = xs[selectors].index.difference([a]).to_list()
+    b = random.choice(ind_pools)
+    swap_time(xs, a, b)
+    return b
+
+
+def _main(data):
+    data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
+    xs = generate_initial_solution(data)    
     violations, vio_index = calc_violations(xs)
     # return xs
     indices = xs.index.to_list()
@@ -255,21 +248,7 @@ def main(xs):
         if new_vio == 0:
             break
         a = random.choice(vio_index)
-        tgt_kelas = xs.loc[a].kelas
-        tgt_jam = xs.loc[a].jam
-        # change daytime in same kelas
-        ind_pools = xs[ (xs['kelas'] == tgt_kelas) & (xs['jam'] == tgt_jam)].index.difference([a]).to_list()
-        b = random.choice(ind_pools)
-
-        # if niter > 20:
-        #     print(f"a={a}, b={b}")
-        #     print(vio_index)
-        #     # print(xs.loc[vio_index])
-        #     for vi in vio_index:
-        #         dup_guru = xs.loc[vi].guru
-        #         print(xs[xs['guru'] == dup_guru])
-        #     input()
-        swap_time(xs, a, b)
+        b = mutate(xs, a)
         new_vio, _ = calc_violations(xs)
         if new_vio > violations:
             swap_time(xs, b, a)
@@ -281,23 +260,24 @@ def main(xs):
         print(f"new_vio = {new_vio}")
     return xs
 
+
+def main(data):
+    data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
+    xs = _main(data)
+    # return xs
+    return xs.to_dict(orient='records')
+    # result = []
+    # for kelas, group in xs.groupby('kelas'):
+    #     sub_res = { 
+    #         'kelas': kelas,
+    #         'items': group.sort_values(['hari', 't0', 't1']).to_dict(orient='records')
+    #     }
+    #     result.append(sub_res)
+    # return result
+
 if __name__ == '__main__':
     with open('webapp/data_test.json') as f:
-        data = json.loads(f.read())
-    data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
-    xs = generate_initial_solution(data)
-    result = main(xs)
-    # for g in gurus:
-    #     g_slots = xs[xs[:, 2] == g]
-    #     g_slots[g_slots[:, 4]]
-    #     print(g_slots)
-    # spreaded = spread_solutions(init_sols)
-    # print(spreaded)
-
-    # generator = KelasSolutionGenerator(mark=1, **data)
-    # kelas_result = generator.generate()
-    # print('first kelas')
-
-    # generator = KelasSolutionGenerator(mark=2, **data)
-    # kelas_result = generator.generate()
-    # print('second kelas')
+        data_1 = json.loads(f.read())
+    with open('webapp/data_test_2.json') as f:
+        data_2 = json.loads(f.read())
+    result = main(data_1)

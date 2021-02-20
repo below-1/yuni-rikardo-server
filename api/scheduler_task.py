@@ -3,6 +3,8 @@ from webapp.db import SchedulerTask, AppUser, Kelas, InputSch, db, MataPelajaran
 from flask import Blueprint, request, jsonify, g
 from pony.orm import (db_session, commit, select)
 
+bobot_hari = [ { "hari": 0, "max": 7 }, { "hari": 1, "max": 8 }, { "hari": 2, "max": 8 }, { "hari": 3, "max": 7 }, { "hari": 4, "max": 5 }, { "hari": 5, "max": 5 }]
+
 @api.route('scheduler_task', methods=['POST'])
 @db_session
 def create_task():
@@ -37,9 +39,10 @@ def create_task():
         'jam': it.jam
     } for it in mp_guru ]
 
-    payload['kelas'] = kelas
-    payload['mp_guru'] = mp_guru
-    payload['mps'] = mps
+    payload['kelas_list'] = kelas
+    payload['mp_guru_list'] = mp_guru
+    payload['mp_list'] = mps
+    payload['bobot_hari'] = bobot_hari
     st = SchedulerTask(
         app_user=app_user,
         args=payload,
