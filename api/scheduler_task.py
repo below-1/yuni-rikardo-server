@@ -2,6 +2,7 @@ from webapp.api.bp import api
 from webapp.db import SchedulerTask, AppUser, Kelas, InputSch, db, MataPelajaran
 from flask import Blueprint, request, jsonify, g
 from pony.orm import (db_session, commit, select)
+import json
 
 bobot_hari = [ { "hari": 0, "max": 7 }, { "hari": 1, "max": 8 }, { "hari": 2, "max": 8 }, { "hari": 3, "max": 7 }, { "hari": 4, "max": 5 }, { "hari": 5, "max": 5 }]
 
@@ -74,3 +75,9 @@ def remove_task(id_task):
     task.status = 'cancel'
     commit()
     return 'OK'
+
+@api.route('try', methods=['GET'])
+def just_try():
+    with open('webapp/result.json') as f:
+        result = json.load(f)
+        return jsonify(result)

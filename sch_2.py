@@ -42,7 +42,7 @@ class RangeSlot:
         return f"({self.lower} - {self.upper})"
 
     def __dict__(self):
-        return { 't0': self.lower, 't1': self.upper }
+        return { 't0': int(self.lower), 't1': int(self.upper) }
 
 def _split_mpgs (mp_guru_list):
     tmp_mp_guru = []
@@ -264,23 +264,44 @@ def swap_time(xs, a, b):
     xs.at[b, 'guru'] = xa.guru
 
 def swap_in_day(xs, i, j):
-    xi, xj = xs.iloc[i], xs.iloc[j]
-    if xj.slot < xi.slot:
-        return swap_in_day(xs, j, i)
-    # xs.swaplevel(i, j)
-    temp = xi.copy()
+    temp = xs.loc[i].copy()
+    # print(xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ])
+    xs.loc[i] = xs.loc[j]
+    xs.loc[j] = temp
 
-    slot_i = RangeSlot(xi.slot.lower, xi.slot.lower + xj.jam - 1)
-    xs.at[i, 'slot'] = slot_i
-    xs.at[i, 'jam'] = xj.jam
-    xs.at[i, 'guru'] = xj.guru
-    xs.at[i, 'mp'] = xj.mp
+    last_t = 0
+    _inds = []
+    view = xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ]
+    for index, row in view.iterrows():
+        lower = last_t
+        upper = lower + row.jam - 1
+        xs.at[index, 'slot'] = RangeSlot(lower, upper)
+        last_t = upper + 1
+        # if view.shape[0] == 3:
+        #     print(f'{lower=}')
+        #     print(f'{upper=}')
+        #     print(f'{last_t=}')
+        #     print()
+            # input()
+        _inds.append(index)
+    # print(xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ])
+    # xi, xj = xs.iloc[i], xs.iloc[j]
+    # if xj.slot < xi.slot:
+    #     return swap_in_day(xs, j, i)
+    # # xs.swaplevel(i, j)
+    # temp = xi.copy()
 
-    slot_j = RangeSlot(slot_i.upper + 1, slot_i.upper + xi.jam)
-    xs.at[j, 'slot'] = slot_j
-    xs.at[j, 'jam'] = temp.jam
-    xs.at[j, 'guru'] = temp.guru
-    xs.at[j, 'mp'] = temp.mp    
+    # slot_i = RangeSlot(xi.slot.lower, xi.slot.lower + xj.jam - 1)
+    # xs.at[i, 'slot'] = slot_i
+    # xs.at[i, 'jam'] = xj.jam
+    # xs.at[i, 'guru'] = xj.guru
+    # xs.at[i, 'mp'] = xj.mp
+
+    # slot_j = RangeSlot(slot_i.upper + 1, slot_i.upper + xi.jam)
+    # xs.at[j, 'slot'] = slot_j
+    # xs.at[j, 'jam'] = temp.jam
+    # xs.at[j, 'guru'] = temp.guru
+    # xs.at[j, 'mp'] = temp.mp    
 
 def choose_same_jam(xs, a):
     jam = xs.loc[a].jam
@@ -335,7 +356,7 @@ def _main(data):
     global DEBUG
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = generate_initial_solution(data)    
-    return xs
+    # return xs
     violations, vio_index = calc_violations(xs)
     indices = xs.index.to_list()
     niter = 0
@@ -348,6 +369,10 @@ def _main(data):
         a = random.choice(vio_index)
 
         mutation = mutate(xs, a)
+        # anomalies = xs.groupby(['kelas', 'hari']).apply(lambda g: g.duplicated('slot')).sum()
+        # if anomalies:
+        #     return xs, mutation, 'forward'
+
         log(f"{mutation.type=}")
         log(f"{mutation.target=}")
         log('after mutation')
@@ -358,6 +383,9 @@ def _main(data):
         new_vio, _ = calc_violations(xs)
         if new_vio > violations:
             mutation.reverse()
+            # anomalies = xs.groupby(['kelas', 'hari']).apply(lambda g: g.duplicated('slot')).sum()
+            # if anomalies:
+            #     return xs, mutation, 'reverse'
             log('after reverse')
             log(mutation.affected(xs))
             stuck += 1
@@ -373,17 +401,25 @@ def _main(data):
         if violations == 0:
             break
 
-        if DEBUG:
-            input()
-
+        # if DEBUG:
+        #     input()
         print(f"new_vio = {new_vio}")
     return xs
 
 
 def main(data):
-    data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
+    # data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = _main(data)
-    return xs
+    result = []
+    # return xs
+    for d in xs.to_dict(orient='records'):
+      _slot = d['slot'].__dict__()
+      del d['slot']
+      result.append({
+        **d,
+        **_slot
+      })
+    return result
     # return xs.to_dict(orient='records')
 
 
@@ -392,5 +428,7 @@ if __name__ == '__main__':
         data_1 = json.loads(f.read())
     with open('webapp/data_test_2.json') as f:
         data_2 = json.loads(f.read())
-    xs = main(data_1)
+    xs, mutation, mut_type = _main(data_1)
+    # with open('webapp/result.json', mode='w') as f:
+    #     json.dump(result, f, indent=4)
     # result.to_csv('yuni/data.csv', index=False)
