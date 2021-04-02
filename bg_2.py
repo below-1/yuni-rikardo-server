@@ -1,7 +1,7 @@
 from multiprocessing import Process, Queue
 import time
 import sys
-import sch
+import sch_2
 from pso import pso
 from pony.orm import db_session, select, commit
 from db import db, SchedulerTask
@@ -14,7 +14,8 @@ def run_sch(id):
         task = SchedulerTask[id]
         task.status = "running"
         commit()
-        result = sch.main(task.args)
+        result = sch_2.main(task.args)
+        print(result[0])
         result = {
             'result': result,
             'kelas': task.args['kelas_list']

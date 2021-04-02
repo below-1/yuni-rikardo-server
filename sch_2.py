@@ -41,6 +41,9 @@ class RangeSlot:
     def __repr__(self):
         return f"({self.lower} - {self.upper})"
 
+    def __dict__(self):
+        return { 't0': self.lower, 't1': self.upper }
+
 def _split_mpgs (mp_guru_list):
     tmp_mp_guru = []
     mp_guru_id = 1
@@ -291,11 +294,7 @@ def mutate_01(xs, a):
     selectors = (xs['kelas'] == tgt_kelas) & (xs['jam'] == tgt_jam) & (xs['guru'] != xa.guru)
     ind_pools = xs[selectors].index.difference([a]).to_list()
     b = random.choice(ind_pools)
-    # log('before mutation')
-    # log(xs.iloc[[a, b]])
     swap_time(xs, a, b)
-    # log('after mutation')
-    # log(xs.iloc[[a, b]])
     return Mutation(
         type="time_swap",
         reverse=lambda : swap_time(xs, a, b),
@@ -327,16 +326,6 @@ def mutate_02(xs, a):
         affected=lambda xs: xs[(xs['hari'] == hari) & (xs['kelas'] == kelas)]
     )
 
-    # raise Exception('you!!')
-    # tgt_mp = xs.loc[a].mp
-    # selectors = (xs['kelas'] != tgt_kelas) & \
-    #     (xs['mp'] == tgt_mp) & \
-    #     (xs['jam'] == tgt_jam)
-    # ind_pools = xs[selectors].index.difference([a]).to_list()
-    # b = random.choice(ind_pools)
-    # swap_kelas(xs, a, b)
-    # return b
-
 def mutate(xs, a):
     x = random.random()
     return mutate_01(xs, a) if x > 0.5 else mutate_02(xs, a)
@@ -346,7 +335,7 @@ def _main(data):
     global DEBUG
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = generate_initial_solution(data)    
-    # return xs
+    return xs
     violations, vio_index = calc_violations(xs)
     indices = xs.index.to_list()
     niter = 0
@@ -396,25 +385,12 @@ def main(data):
     xs = _main(data)
     return xs
     # return xs.to_dict(orient='records')
-    # result = []
-    # for kelas, group in xs.groupby('kelas'):
-    #     sub_res = { 
-    #         'kelas': kelas,
-    #         'items': group.sort_values(['hari', 't0', 't1']).to_dict(orient='records')
-    #     }
-    #     result.append(sub_res)
-    # return result
 
-# def test():
-#     _data = [
-#         []
-#     ]
-#     pd.DataFrame(result, columns=["kelas", "guru", "mp", "hari", "t0", "t1", 'jam'])
 
 if __name__ == '__main__':
     with open('webapp/data_test.json') as f:
         data_1 = json.loads(f.read())
     with open('webapp/data_test_2.json') as f:
         data_2 = json.loads(f.read())
-    result = main(data_1)
-    result.to_csv('yuni/data.csv', index=False)
+    xs = main(data_1)
+    # result.to_csv('yuni/data.csv', index=False)
