@@ -265,7 +265,6 @@ def swap_time(xs, a, b):
 
 def swap_in_day(xs, i, j):
     temp = xs.loc[i].copy()
-    # print(xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ])
     xs.loc[i] = xs.loc[j]
     xs.loc[j] = temp
 
@@ -277,31 +276,7 @@ def swap_in_day(xs, i, j):
         upper = lower + row.jam - 1
         xs.at[index, 'slot'] = RangeSlot(lower, upper)
         last_t = upper + 1
-        # if view.shape[0] == 3:
-        #     print(f'{lower=}')
-        #     print(f'{upper=}')
-        #     print(f'{last_t=}')
-        #     print()
-            # input()
         _inds.append(index)
-    # print(xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ])
-    # xi, xj = xs.iloc[i], xs.iloc[j]
-    # if xj.slot < xi.slot:
-    #     return swap_in_day(xs, j, i)
-    # # xs.swaplevel(i, j)
-    # temp = xi.copy()
-
-    # slot_i = RangeSlot(xi.slot.lower, xi.slot.lower + xj.jam - 1)
-    # xs.at[i, 'slot'] = slot_i
-    # xs.at[i, 'jam'] = xj.jam
-    # xs.at[i, 'guru'] = xj.guru
-    # xs.at[i, 'mp'] = xj.mp
-
-    # slot_j = RangeSlot(slot_i.upper + 1, slot_i.upper + xi.jam)
-    # xs.at[j, 'slot'] = slot_j
-    # xs.at[j, 'jam'] = temp.jam
-    # xs.at[j, 'guru'] = temp.guru
-    # xs.at[j, 'mp'] = temp.mp    
 
 def choose_same_jam(xs, a):
     jam = xs.loc[a].jam
@@ -352,11 +327,14 @@ def mutate(xs, a):
     return mutate_01(xs, a) if x > 0.5 else mutate_02(xs, a)
     # return mutate_01(xs, a)
 
+def mutate_randomly(xs, vio_index):
+    for index in vio_index:
+        mutate(xs, index)
+
 def _main(data):
     global DEBUG
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = generate_initial_solution(data)    
-    # return xs
     violations, vio_index = calc_violations(xs)
     indices = xs.index.to_list()
     niter = 0
@@ -369,23 +347,15 @@ def _main(data):
         a = random.choice(vio_index)
 
         mutation = mutate(xs, a)
-        # anomalies = xs.groupby(['kelas', 'hari']).apply(lambda g: g.duplicated('slot')).sum()
-        # if anomalies:
-        #     return xs, mutation, 'forward'
 
         log(f"{mutation.type=}")
         log(f"{mutation.target=}")
         log('after mutation')
         log(mutation.affected(xs))
 
-        # raise Exception('stop!!!')
-
         new_vio, _ = calc_violations(xs)
-        if new_vio > violations:
+        if new_vio >= violations:
             mutation.reverse()
-            # anomalies = xs.groupby(['kelas', 'hari']).apply(lambda g: g.duplicated('slot')).sum()
-            # if anomalies:
-            #     return xs, mutation, 'reverse'
             log('after reverse')
             log(mutation.affected(xs))
             stuck += 1
@@ -393,10 +363,12 @@ def _main(data):
             violations = new_vio
             stuck = 0
 
-        if stuck > 10:
-            DEBUG = True
-        else:
-            DEBUG = False
+        if stuck > 20:
+            print('random mutation initiated')
+            mutate_randomly(xs, vio_index)
+            new_vio, _ = calc_violations(xs)
+            violations = new_vio
+            stuck = 0
 
         if violations == 0:
             break
@@ -408,10 +380,8 @@ def _main(data):
 
 
 def main(data):
-    # data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = _main(data)
     result = []
-    # return xs
     for d in xs.to_dict(orient='records'):
       _slot = d['slot'].__dict__()
       del d['slot']
@@ -420,7 +390,6 @@ def main(data):
         **_slot
       })
     return result
-    # return xs.to_dict(orient='records')
 
 
 if __name__ == '__main__':
@@ -428,7 +397,7 @@ if __name__ == '__main__':
         data_1 = json.loads(f.read())
     with open('webapp/data_test_2.json') as f:
         data_2 = json.loads(f.read())
-    xs, mutation, mut_type = _main(data_1)
+    xs = _main(data_1)
     # with open('webapp/result.json', mode='w') as f:
     #     json.dump(result, f, indent=4)
     # result.to_csv('yuni/data.csv', index=False)
