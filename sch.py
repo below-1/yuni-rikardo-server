@@ -8,8 +8,41 @@ from itertools import combinations
 
 from collections import namedtuple
 
+DEBUG = False
+
+def log(s):
+    if not DEBUG: return
+    print(s)
+
 PoolItem = namedtuple('PoolItem', ['mp_id', 'jam', 'mpg', 'id'])
 SlotItem = namedtuple('SlotItem', ["item", "h", "t0", "t1"])
+Mutation = namedtuple('Mutation', ['type', 'reverse', 'affected', 'target'])
+
+class RangeSlot:
+    def __init__(self, lower, upper):
+        self.lower = lower
+        self.upper = upper
+
+    def collide(self, other):
+        return (self.lower >= other.lower and self.lower <= other.upper) or \
+            (self.upper <= other.upper and self.upper >= other.lower)
+
+    def __eq__(self, other):
+        return self.collide(other)
+
+    # DO NOT USE IN SET OR DICT KEYS!!!!
+    def __hash__(self):
+        return 1
+
+    def __lt__(self, other):
+        if self.upper < other.upper: return True
+        if self.lower < other.lower: return True
+
+    def __repr__(self):
+        return f"({self.lower} - {self.upper})"
+
+    def __dict__(self):
+        return { 't0': int(self.lower), 't1': int(self.upper) }
 
 def _split_mpgs (mp_guru_list):
     tmp_mp_guru = []
@@ -161,17 +194,19 @@ def generate_initial_solution(data):
     for kelas in data['kelas_list']:
         generator = KelasSolutionGenerator(**data)
         kelas_result = generator.generate()
+        hari_course_count = { i: 0 for i in range(6) }
         for slot in kelas_result:
+            order = hari_course_count[slot.h]
             result.append([
                 kelas['id'], 
                 slot.item.mpg['guru_id'], 
                 slot.item.mpg['mp_id'], 
                 slot.h,
-                slot.t0, 
-                slot.t1,
+                RangeSlot(slot.t0, slot.t1),
                 slot.t1 - slot.t0 + 1
             ])
-    return pd.DataFrame(result, columns=["kelas", "guru", "mp", "hari", "t0", "t1", 'jam'])
+            hari_course_count[slot.h] += 1
+    return pd.DataFrame(result, columns=["kelas", "guru", "mp", "hari", "slot", 'jam'])
 
 def spread_solutions(data):
     mpg_array = []
@@ -191,42 +226,57 @@ def spread_solutions(data):
         "guru": np.array(guru_array)
     }
 
-def calc_violations(xs):
+def course_clash_violation(xs):
     violations = 0
     all_dups = []
-    for _, group in xs.groupby(['hari', 't0', 't1']):
+    for _, group in xs.groupby(['hari', 'slot']):
         dups = group.duplicated('guru')
         dups_ind = dups[dups == True].index
         all_dups.extend(dups_ind.to_list())
         violations += len(dups_ind)
     return violations, all_dups
 
+def mp_clash_violation(xs):
+    violations = 0
+    all_dups = []
+    for _, group in xs.groupby(['kelas', 'hari']):
+        dups = group.duplicated('mp')
+        dups_ind = dups[dups == True].index
+        all_dups.extend(dups_ind.to_list())
+        violations += len(dups_ind)
+    return violations, all_dups
+
+def calc_violations(xs):
+    c_vio, c_vio_index = course_clash_violation(xs)
+    mp_vio, mp_vio_index = mp_clash_violation(xs)
+    vio_index = set([*c_vio_index, *mp_vio_index])
+    return c_vio + mp_vio, list(vio_index)
+
 def find_ind_pools(xs, jam):
     ind_pools = xs[xs['jam'] == jam].index.to_list()
 
 def swap_time(xs, a, b):
-    _hari = xs.loc[a].hari
-    _t0 = xs.loc[a].t0
-    _t1 = xs.loc[a].t1
-    xs.loc[a, 'hari'] = xs.loc[b].hari
-    xs.loc[a, 't0'] = xs.loc[b].t0
-    xs.loc[a, 't1'] = xs.loc[b].t1
-    xs.loc[b, 'hari'] = _hari
-    xs.loc[b, 't0'] = _t0
-    xs.loc[b, 't1'] = _t1
+    xa = xs.iloc[a].copy()
+    xb = xs.iloc[b].copy()
+    xs.at[a, 'mp'] = xb.mp
+    xs.at[a, 'guru'] = xb.guru
+    xs.at[b, 'mp'] = xa.mp
+    xs.at[b, 'guru'] = xa.guru
 
-def swap_kelas(xs, a, b):
-    temp = xs.loc[a].copy()
+def swap_in_day(xs, i, j):
+    temp = xs.loc[i].copy()
+    xs.loc[i] = xs.loc[j]
+    xs.loc[j] = temp
 
-    xs.loc[a, 'kelas'] = xs.loc[b].kelas
-    xs.loc[a, 'hari'] = xs.loc[b].hari
-    xs.loc[a, 't0'] = xs.loc[b].t0
-    xs.loc[a, 't1'] = xs.loc[b].t1
-
-    xs.loc[b, 'kelas'] = temp.kelas
-    xs.loc[b, 'hari'] = temp.hari
-    xs.loc[b, 't0'] = temp.t0
-    xs.loc[b, 't1'] = temp.t1
+    last_t = 0
+    _inds = []
+    view = xs[ (xs['kelas'] == temp.kelas) & (xs['hari'] == temp.hari) ]
+    for index, row in view.iterrows():
+        lower = last_t
+        upper = lower + row.jam - 1
+        xs.at[index, 'slot'] = RangeSlot(lower, upper)
+        last_t = upper + 1
+        _inds.append(index)
 
 def choose_same_jam(xs, a):
     jam = xs.loc[a].jam
@@ -236,34 +286,56 @@ def mutate_01(xs, a):
     tgt_kelas = xs.loc[a].kelas
     tgt_jam = xs.loc[a].jam
     tgt_mp = xs.loc[a].mp
-    selectors = (xs['kelas'] == tgt_kelas) & (xs['jam'] == tgt_jam)
+    xa = xs.loc[a]
+    selectors = (xs['kelas'] == tgt_kelas) & (xs['jam'] == tgt_jam) & (xs['guru'] != xa.guru)
     ind_pools = xs[selectors].index.difference([a]).to_list()
     b = random.choice(ind_pools)
     swap_time(xs, a, b)
-    return b
+    return Mutation(
+        type="time_swap",
+        reverse=lambda : swap_time(xs, a, b),
+        affected=lambda xs: xs[ 
+            ((xs['hari'] == xs.loc[a].hari) \
+            & (xs['slot'] == xs.loc[a].slot) ) \
+            | ((xs['hari'] == xs.loc[b].hari) \
+                & (xs['slot'] == xs.loc[b].slot)
+            )
+        ].sort_values(['hari', 'slot']),
+        # affected=lambda xs: xs.loc[[a, b]],
+        target={ 'a': a, 'b': b }
+    )
+    return 
 
 def mutate_02(xs, a):
-    tgt_kelas = xs.loc[a].kelas
-    tgt_jam = xs.loc[a].jam
-    tgt_mp = xs.loc[a].mp
-    selectors = (xs['kelas'] != tgt_kelas) & \
-        (xs['mp'] == tgt_mp) & \
-        (xs['jam'] == tgt_jam)
-    ind_pools = xs[selectors].index.difference([a]).to_list()
-    b = random.choice(ind_pools)
-    swap_kelas(xs, a, b)
-    return b
+    kelas = xs.loc[a].kelas
+    hari = xs.loc[a].hari
+    slot = xs.loc[a].slot
+    area_selectors = (xs['hari'] == hari) & (xs['kelas'] == kelas)
+    area = xs[area_selectors]
+    inds = area.index.difference([a]).to_list()
+    b = random.choice(inds)
+    swap_in_day(xs, a, b)
+    return Mutation(
+        type="day_swap",
+        target={ 'a': a, 'b': b },
+        reverse=lambda : swap_in_day(xs, a, b),
+        affected=lambda xs: xs[(xs['hari'] == hari) & (xs['kelas'] == kelas)]
+    )
 
 def mutate(xs, a):
-    # x = random.random()
-    # return mutate_01(xs, a) if x > 0.5 else mutate_02(xs, a)
-    return mutate_01(xs, a)
+    x = random.random()
+    return mutate_01(xs, a) if x > 0.5 else mutate_02(xs, a)
+    # return mutate_01(xs, a)
+
+def mutate_randomly(xs, vio_index):
+    for index in vio_index:
+        mutate(xs, index)
 
 def _main(data):
+    global DEBUG
     data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = generate_initial_solution(data)    
     violations, vio_index = calc_violations(xs)
-    # return xs
     indices = xs.index.to_list()
     niter = 0
     stuck = 0
@@ -273,56 +345,58 @@ def _main(data):
         if new_vio == 0:
             break
         a = random.choice(vio_index)
-        b = mutate(xs, a)
+
+        mutation = mutate(xs, a)
+
+        log(f"{mutation.type=}")
+        log(f"{mutation.target=}")
+        log('after mutation')
+        log(mutation.affected(xs))
+
         new_vio, _ = calc_violations(xs)
         if new_vio >= violations:
-            swap_time(xs, b, a)
+            mutation.reverse()
+            log('after reverse')
+            log(mutation.affected(xs))
             stuck += 1
         else:
             violations = new_vio
             stuck = 0
-        # if stuck > 20:
-        #     print('anchor index')
-        #     dup_h = xs.loc[a].hari
-        #     dup_t0 = xs.loc[a].t0
-        #     dup_t1 = xs.loc[a].t1
-        #     print('duplicates')
-        #     print(xs[ (xs['hari'] == dup_h) & (xs['t0'] == dup_t0) & (xs['t1'] == dup_t1) ])
-        # if violations < 10:
-        #     print(xs.loc[vio_index])
-        #     input()
-        # if violations < 5:
-        #     break
+
+        if stuck > 20:
+            print('random mutation initiated')
+            mutate_randomly(xs, vio_index)
+            new_vio, _ = calc_violations(xs)
+            violations = new_vio
+            stuck = 0
+
         if violations == 0:
             break
 
+        # if DEBUG:
+        #     input()
         print(f"new_vio = {new_vio}")
     return xs
 
 
 def main(data):
-    data['mp_guru_list'] = _split_mpgs(data['mp_guru_list'])
     xs = _main(data)
-    return xs
-    # return xs.to_dict(orient='records')
-    # result = []
-    # for kelas, group in xs.groupby('kelas'):
-    #     sub_res = { 
-    #         'kelas': kelas,
-    #         'items': group.sort_values(['hari', 't0', 't1']).to_dict(orient='records')
-    #     }
-    #     result.append(sub_res)
-    # return result
-
-# def test():
-#     _data = [
-#         []
-#     ]
-#     pd.DataFrame(result, columns=["kelas", "guru", "mp", "hari", "t0", "t1", 'jam'])
+    result = []
+    for d in xs.to_dict(orient='records'):
+      _slot = d['slot'].__dict__()
+      del d['slot']
+      result.append({
+        **d,
+        **_slot
+      })
+    return result
 
 if __name__ == '__main__':
     with open('webapp/data_test.json') as f:
         data_1 = json.loads(f.read())
     with open('webapp/data_test_2.json') as f:
         data_2 = json.loads(f.read())
-    result = main(data_1)
+    xs = _main(data_1)
+    # with open('webapp/result.json', mode='w') as f:
+    #     json.dump(result, f, indent=4)
+    # result.to_csv('yuni/data.csv', index=False)
