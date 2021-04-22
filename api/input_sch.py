@@ -28,20 +28,6 @@ def find_input_sch():
         'mp_nama': it.mp_nama,
         'jam': it.jam
     } for it in items ]
-    # items = pony.orm.select(
-    #     { 
-    #         "id": isch.id, 
-    #         "mp_nama": mp.nama,
-    #         "mp_id": mp.id,
-    #         "guru_nama": g.nama,
-    #         "guru_id": g.id
-    #     }
-    #     for g in Guru
-    #     for mp in MataPelajaran
-    #     for isch in InputSch 
-    #     if (isch.app_user.id == id_app_user) and ((isch.mata_pelajaran == mp) and (isch.guru == g)))[:]
-    print(items)
-    # items = [ it.to_dict() for it in items ]
     return jsonify(items)
 
 @api.route('/input_sch/<int:id_input_sch>', methods=['GET'])

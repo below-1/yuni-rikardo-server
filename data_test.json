@@ -307,7 +307,23 @@
       "jam": 2, 
       "mp_id": 11, 
       "mp_nama": "BP/BK"
-    }
+    },
+    {
+    "guru_id": 26,
+    "guru_nama": "Agustinus Epu",
+    "id": 32,
+    "jam": 3,
+    "mp_id": 10,
+    "mp_nama": "Seni Budaya"
+  },
+  {
+    "guru_id": 26,
+    "guru_nama": "Agustinus Epu",
+    "id": 33,
+    "jam": 2,
+    "mp_id": 11,
+    "mp_nama": "BP/BK"
+  }
   ], 
   "mp_list": [
     {

@@ -9,6 +9,8 @@ from itertools import combinations
 from collections import namedtuple
 
 DEBUG = False
+BOBOT_HARI = [ 7, 8, 8, 7, 5, 5 ]
+MP_GURU = {}
 
 def log(s):
     if not DEBUG: return
@@ -37,6 +39,9 @@ class RangeSlot:
     def __lt__(self, other):
         if self.upper < other.upper: return True
         if self.lower < other.lower: return True
+
+    def __contains__(self, x):
+        return x >= self.lower and x <= self.upper
 
     def __repr__(self):
         return f"({self.lower} - {self.upper})"
@@ -226,15 +231,23 @@ def spread_solutions(data):
         "guru": np.array(guru_array)
     }
 
+def get_guru_dup_indices(xs, t):
+    '''
+        Get duplicated guru in xs at timeslot t
+    '''
+    indices = xs['slot'].apply(lambda rs: t in rs)
+    dups = xs[indices].duplicated('guru')
+    dups_ind = dups[dups == True].index
+    return dups_ind
+
 def course_clash_violation(xs):
-    violations = 0
-    all_dups = []
-    for _, group in xs.groupby(['hari', 'slot']):
-        dups = group.duplicated('guru')
-        dups_ind = dups[dups == True].index
-        all_dups.extend(dups_ind.to_list())
-        violations += len(dups_ind)
-    return violations, all_dups
+    all_dups = set()
+    for h, group in xs.groupby('hari'):
+        max_t = BOBOT_HARI[h]
+        for i in range(max_t):
+            dups_ind = get_guru_dup_indices(group, i)
+            all_dups = all_dups.union(dups_ind.to_list())
+    return len(all_dups), all_dups
 
 def mp_clash_violation(xs):
     violations = 0
@@ -339,6 +352,7 @@ def _main(data):
     indices = xs.index.to_list()
     niter = 0
     stuck = 0
+    vio_index = None
     while violations != 0:
         niter += 1
         new_vio, vio_index = calc_violations(xs)
@@ -363,24 +377,29 @@ def _main(data):
             violations = new_vio
             stuck = 0
 
-        if stuck > 20:
+        if stuck > 50:
             print('random mutation initiated')
             mutate_randomly(xs, vio_index)
-            new_vio, _ = calc_violations(xs)
+            new_vio, vio_index = calc_violations(xs)
             violations = new_vio
             stuck = 0
 
-        if violations == 0:
+        if violations == 5:
             break
 
         # if DEBUG:
         #     input()
         print(f"new_vio = {new_vio}")
-    return xs
+    return xs, vio_index
 
 
 def main(data):
-    xs = _main(data)
+    global MP_GURU
+    for it in data['mp_guru_list']:
+        if it['mp_id'] not in MP_GURU:
+            MP_GURU['mp_id'] = list()
+        MP_GURU['mp_id'].append(it['guru_id'])
+    xs, vio_index = _main(data)
     result = []
     for d in xs.to_dict(orient='records'):
       _slot = d['slot'].__dict__()
@@ -389,7 +408,7 @@ def main(data):
         **d,
         **_slot
       })
-    return result
+    return result, vio_index
 
 if __name__ == '__main__':
     with open('webapp/data_test.json') as f:

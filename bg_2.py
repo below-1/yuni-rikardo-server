@@ -14,11 +14,12 @@ def run_sch(id):
         task = SchedulerTask[id]
         task.status = "running"
         commit()
-        result = sch.main(task.args)
+        result, vio_index = sch.main(task.args)
         print(result[0])
         result = {
             'result': result,
-            'kelas': task.args['kelas_list']
+            'kelas': task.args['kelas_list'],
+            'vio_index': vio_index
         }
         task.result = result
         task.status = "done"
