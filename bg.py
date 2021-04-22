@@ -2,22 +2,28 @@ from multiprocessing import Process, Queue
 import time
 import sys
 from pso import pso
+import foo
 from pony.orm import db_session, select, commit
 from db import db, SchedulerTask
 
 all_tasks = []
 
-def run_pso(id):
-    print("running pso")
+def run_sch(id):
+    # TURNOFF THIS ON WINDOWS
+    # db.bind(provider='sqlite', filename=db_filename, create_db=False)
+    # db.generate_mapping(create_tables=False)
+    print("running scheduler")
     with db_session:
         task = SchedulerTask[id]
         task.status = "running"
         commit()
-        result = pso(task.args)
-        result = {
-            'result': result,
-            'kelas': task.args['kelas']
-        }
+
+        n_kelas = len(task.args['kelas_list'])
+        mpg = task.args['mp_guru_list']
+        mp_target = { it['id']: it['jpm'] for it in task.args['mp_list'] }
+
+        xs = foo.f(mp_target, mpg, n_kelas)
+        result = foo.decode(xs)
         task.result = result
         task.status = "done"
         commit()
@@ -35,7 +41,7 @@ def handle_task(task):
     if task['status'] == 'cancel':
         remove_canceled(task['id'])
     elif task['status'] == "ready":
-        p = Process(target=run_pso, daemon=True, args=(task['id'],))
+        p = Process(target=run_sch, daemon=True, args=(task['id'],))
         all_tasks.append({
             'id': task['id'],
             'p': p

@@ -2,14 +2,18 @@ import os
 
 from flask import Flask
 from webapp import db
-from webapp import queue
 from pony.flask import Pony
 from flask_cors import CORS
 from multiprocessing import Process
 
 def create_app(test_config=None):
     # create and configure the app
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(
+        __name__, 
+        static_url_path='', 
+        static_folder='static',
+        instance_relative_config=True
+    )
     CORS(app)
     app.config.from_mapping(
         SECRET_KEY='dev',
@@ -43,6 +47,10 @@ def create_app(test_config=None):
 
     from webapp.api import api
     app.register_blueprint(api)
+
+    @app.route('/')
+    def home():
+        return app.send_static_file('index.html')
     # app.cli.add_command(db.init_database)
     # app.teardown_appcontext(queue.remove_queue)
 
