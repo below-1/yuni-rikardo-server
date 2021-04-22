@@ -178,7 +178,7 @@ def swap_time_in_kelas(xs, a, b):
     xs.at[b, 'hari'] = xa.hari
     xs.at[b, 'i'] = xa.i
 
-def main(mp_target, mpg, n_kelas):
+def _main(mp_target, mpg, n_kelas):
     mp_guru_pools = {}
     for m in mpg:
         if m['mp_id'] not in mp_guru_pools:
@@ -224,9 +224,37 @@ def main(mp_target, mpg, n_kelas):
         count += 1
         # print(f'{count=}')
         # print()
+    
+
     return xs
 
-def _f():
+def f(mp_target, mpg, n_kelas):
+    mpg_list = _split_mpgs(mpg)
+    return _main(mp_target, mpg_list, n_kelas)
+
+def decode(xs):
+    result = []
+    for (hari, i), group in xs.groupby(['hari', 'i']):
+        sorted_g = group.sort_values(['kelas'])
+        rows = []
+        record = {
+            'hari': int(hari),
+            'i': int(i)
+        }
+        for i, row in sorted_g.iterrows():
+            rows.append({
+                'kelas': row.kelas,
+                'guru_id': row.guru_id,
+                'mp_id': row.mp_id,
+                'jam': row.jam
+            })
+        print(rows[0])
+        record['rows'] = rows
+        record['jam'] = rows[0]['jam']
+        result.append(record)
+    return result
+
+if __name__ == '__main__':
     mp_target = {
         1: 3,
         2: 6,
@@ -240,9 +268,9 @@ def _f():
         10: 3,
         11: 2
     }
-    n_kelas = 11    
-    mpg = load_mp_guru('webapp/mp_guru.json')
-    return main(mp_target, mpg, n_kelas)
-
-if __name__ == '__main__':
-    xs = _f()
+    # morning_mp = [4, 6, 7]
+    n_kelas = 5
+    mpg = load_json('webapp/mp_guru.json')
+    xs = f(mp_target, mpg, n_kelas)
+    result = decode(xs)
+    json.dumps(result)

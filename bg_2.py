@@ -1,26 +1,28 @@
 from multiprocessing import Process, Queue
 import time
 import sys
-import sch
 from pso import pso
+import foo
 from pony.orm import db_session, select, commit
 from db import db, SchedulerTask
 
 all_tasks = []
 
 def run_sch(id):
+    # db.bind(provider='sqlite', filename=db_filename, create_db=False)
+    # db.generate_mapping(create_tables=False)
     print("running scheduler")
     with db_session:
         task = SchedulerTask[id]
         task.status = "running"
         commit()
-        result, vio_index = sch.main(task.args)
-        print(result[0])
-        result = {
-            'result': result,
-            'kelas': task.args['kelas_list'],
-            'vio_index': vio_index
-        }
+
+        n_kelas = len(task.args['kelas_list'])
+        mpg = task.args['mp_guru_list']
+        mp_target = { it['id']: it['jpm'] for it in task.args['mp_list'] }
+
+        xs = foo.f(mp_target, mpg, n_kelas)
+        result = foo.decode(xs)
         task.result = result
         task.status = "done"
         commit()
