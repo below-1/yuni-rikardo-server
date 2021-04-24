@@ -135,6 +135,19 @@ def calc_soft_violations(xs, morning_mp):
     violations = xs[ ( xs.mp_id.isin(morning_mp) ) & (xs.i != 0) ]
     return violations.shape[0], violations.index
 
+def calc_sc1_violations(xs):
+    total = 0
+    index = set()
+    for (kelas, hari), g in xs.groupby(['kelas', 'hari']):
+        g_dups = g.duplicated('guru_id')
+        mp_dups = g.duplicated('mp_id')
+        total_g_dups = g_dups.sum()
+        total_mp_dups = mp_dups.sum()
+        if total_mp_dups > 0 or total_g_dups > 0:
+            index = index.union(set(xs[(xs.kelas == kelas) & (xs.hari == hari)].index))
+            total += 1
+    return total, list(index)
+
 def calc_hard_violations(xs):
     total = 0
     index = set()
@@ -222,9 +235,27 @@ def _main(mp_target, mpg, n_kelas):
                 xs.at[a, 'guru_id'] = prev_guru_id
 
         count += 1
-        # print(f'{count=}')
-        # print()
     
+    count = 0
+    while count < 1000:
+        count += 1
+        sc_vio, sc_vio_index = calc_sc1_violations(xs)
+        print(f'{sc_vio=}')
+        # input()
+        if sc_vio == 0:
+            break
+        a = random.choice(sc_vio_index)
+        b = random.choice(xs[(xs.jam == xs.loc[a].jam) & (xs.kelas == xs.loc[a].kelas)].index)
+        swap_time_in_kelas(xs, a, b)
+
+        hc_vio, _ = calc_hard_violations(xs)
+        if hc_vio > 0:
+            swap_time_in_kelas(xs, b, a)
+            continue
+
+        sc_new_vio, _ = calc_sc1_violations(xs)
+        if sc_new_vio > sc_vio:
+            swap_time_in_kelas(xs, b, a)
 
     return xs
 
@@ -269,7 +300,7 @@ if __name__ == '__main__':
         11: 2
     }
     # morning_mp = [4, 6, 7]
-    n_kelas = 5
+    n_kelas = 11
     mpg = load_json('webapp/mp_guru.json')
     xs = f(mp_target, mpg, n_kelas)
     result = decode(xs)
